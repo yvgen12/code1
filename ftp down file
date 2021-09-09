@@ -1,0 +1,82 @@
+ public int DownFileFtp(string filename)
+    {
+        string ustCmcR = Settings.Ust.GetValue("_GL_CMСR"); // взять параметр из системы "it"
+        InfoManager.MessageBox(filename);
+        FtpWebRequest request = (FtpWebRequest)WebRequest.Create("xxx/xx/x/" + filename);
+        request.Credentials = new NetworkCredential("xxxxxx", "xxxxxxxxx");
+        request.Proxy = new WebProxy("x.x.x.x:xxxx", true);
+        request.Method = WebRequestMethods.Ftp.DownloadFile;
+        FtpWebResponse response = (FtpWebResponse)request.GetResponse();
+        Stream responseStream = response.GetResponseStream();
+        // сохраняем файл в дисковой системе
+        // создаем поток для сохранения файла
+        FileStream fs = new FileStream(ustCmcR+filename, FileMode.Create) ;
+        //Буфер для считываемых данных
+        byte[] buffer = new byte[64];
+        int size = 0;
+        while ((size = responseStream.Read(buffer, 0, buffer.Length)) > 0)
+        {
+            fs.Write(buffer, 0, size);
+ 
+        }
+       // InfoManager.MessageBox("Файл -- {0} --- успешно загружен from DOWNL", filename);
+        fs.Close();
+        response.Close();
+        return 1;
+    }
+    public static List<string> FileViewerftp()      //создать коллекцию имени файлов для загрузки
+    {
+        string find1 = "ORDER_";
+        string find2 = ".xml";
+        FtpWebRequest request = (FtpWebRequest)WebRequest.Create("ftp://xxx/xx/x);
+        request.Credentials = new NetworkCredential("xxxxxxx", "xxxxxxxxxx");
+        request.Proxy = new WebProxy("x.x.x.x:xxxx", true);
+        request.Method = WebRequestMethods.Ftp.ListDirectory;
+        FtpWebResponse response = (FtpWebResponse)request.GetResponse();
+        Stream responseStream = response.GetResponseStream();
+        List<string>namefiles = new List<string>();
+        using (StreamReader reader = new StreamReader(responseStream))
+        {
+            while (reader.Peek() > -1)
+            {
+                string findX = reader.ReadLine().ToString();
+                if (findX.Contains(find1) == true)
+                {
+                    int vv = findX.IndexOf(find1);
+                    int vuh = findX.IndexOf(find2);
+                    int vv2 = vuh - vv + 4;
+                    string findY = findX.Substring(vv, vv2);
+                    namefiles.Add(findY);
+                   // InfoManager.MessageBox("Файл -- {0}",findY);
+                }
+            }
+            reader.Close();
+        }
+        responseStream.Close();
+        response.Close();
+        return namefiles;
+    }
+    
+     public void findnamebd() 
+    {
+        string ustCmcR = Settings.Ust.GetValue("_GL_CMСR");
+        //InfoManager.MessageBox(ustCmcR);
+        List<string> nameFiles = FileViewerftp();  
+        IEnumerator ienum1 =  nameFiles.GetEnumerator();
+           while (ienum1.MoveNext())
+           {
+               object flobj = ienum1.Current;
+               string filename = flobj.ToString();
+               // Выполнить извлечение имени, проверить по базе и принять решение для парсера
+               var equaldR = SqlClient.CreateCommand("select ID from _IMCMC where filexml = @filexml group by ID");
+               equaldR.Parameters["filexml"].Value = ustCmcR+filename;
+               int IDreader = equaldR.ExecScalar<int>();
+               if (IDreader == 0)
+               {
+                if(DownFileFtp(filename)==1)   //загрузить файл
+                {
+                    _parser(ustCmcR + filename);
+                    _inserter(ustCmcR+filename); }
+                }
+            }
+    }
