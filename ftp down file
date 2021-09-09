@@ -1,4 +1,23 @@
- public int DownFileFtp(string filename)
+//Опишите свой класс и его методы ниже. Данная сборка будет доступна в namespace ITnet2.Server.UserBusinessLogic._Rpars1.
+//Костюченко 22.05.19 Распределение заявок из системы Коммарч в S1U
+//Костюченко доделал коннектор 14.05.21 для "РОЗЕТКА"
+ 
+using System;
+using ITnet2.Server.Session;
+using ITnet2.Server.Data;
+using ITnet2.Server.Dialogs;
+using ITnet2.Server.BusinessLogic.Core.Documents;
+using ITnet2.Server.BusinessLogic.Core.Documents.Forming;
+using ITnet2.Server.BusinessLogic.Core.DocumentConfig;
+using System.IO;
+using System.Xml;
+using System.Collections;
+using System.Collections.Generic;
+using System.Text;
+using System.Net;
+public class _imfile
+{
+    public int DownFileFtp(string filename)
     {
         string ustCmcR = Settings.Ust.GetValue("_GL_CMСR"); // взять параметр из системы "it"
         InfoManager.MessageBox(filename);
@@ -80,3 +99,4 @@
                 }
             }
     }
+}
