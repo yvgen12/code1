@@ -1,0 +1,306 @@
+//Опишите свой класс и его методы ниже. Данная сборка будет доступна в namespace ITnet2.Server.UserBusinessLogic._Impars3.
+//Костюченко Е.И. - ввод в эксплуатацию 27.01.2020
+using ITnet2.Server.Session;
+using ITnet2.Server.Data;
+//using ITnet2.Server.Dialogs;
+using ITnet2.Server.BusinessLogic.Core.Documents;
+using ITnet2.Server.BusinessLogic.Core.Documents.Forming;
+using ITnet2.Server.BusinessLogic.Core.DocumentConfig;
+using System.Xml;
+using System.Collections;
+using System.Collections.Generic;
+using System;
+public class _rozetka
+{
+    public static int _selecterorg(string contractorcode)
+    {
+        var contraktor = SqlClient.CreateCommand("select ORG from _ORGCMC where ILNB = @contraktor"); // контрагент перекодировка
+        contraktor.Parameters["contraktor"].Value = contractorcode;
+        bool contrartif = contraktor.ExecReader().Read();
+        if (contrartif == true)
+        {
+            int contraktorsel = contraktor.ExecScalar<int>();
+            return contraktorsel;
+        }
+        else
+        {
+            int contraktorsel = 333;
+            return contraktorsel;
+        }
+    }
+    public static string _selectercinv(string contractorcinv)
+    {
+        var contraktoradr = SqlClient.CreateCommand("select CINV from _ORGCMC where ILNB = @contraktorin"); // адрес контрагента перекодировка
+        contraktoradr.Parameters["contraktorin"].Value = contractorcinv;
+        bool contraktadrif = contraktoradr.ExecReader().Read();
+        if (contraktadrif == true)
+        {
+            string contraktoradrsel = contraktoradr.ExecScalar<string>();
+            return contraktoradrsel;
+        }
+        else
+        {
+            string contraktoradrsel = " ILN та адресу доставки не введено в базу перекодування контрагентів ";
+            InfoManager.MessageBox("Адрес контрагента не найдено");
+            return contraktoradrsel;
+        }
+    }
+    public static string _nazv(string nazvweb1, string nazvweb2, string nazvweb3)
+    {
+        var el3N = SqlClient.CreateCommand("select KMAT from _KSMCMC where BWCODE = @BWCODEWEB"); // Название изделия kmat перекодировка
+        el3N.Parameters["BWCODEWEB"].Value = nazvweb1;
+        var el3g = el3N.ExecReader();
+        bool el3if = el3g.Read();
+
+        var el4N = SqlClient.CreateCommand("select KMAT from KSM where KMAT = @BWCODEWEB2"); // Название в классиф. по нашему коду
+        el4N.Parameters["BWCODEWEB2"].Value = nazvweb2;
+        var el4g = el4N.ExecReader();
+        bool el4if = el4g.Read();
+
+        var el5N = SqlClient.CreateCommand("select KMAT from KSM where BARCODE = @BWCODEWEB3"); // Название в классиф. по штрих-коду EAN
+        el5N.Parameters["BWCODEWEB3"].Value = nazvweb3;
+        var el5g = el5N.ExecReader();
+        bool el5if = el5g.Read();
+
+        if (el3if == true)
+        { string codenazv = el3N.ExecScalar<string>(); return codenazv; }
+        else if (el5if == true)
+        { string codenazv = el5N.ExecScalar<string>(); return codenazv; }
+        else if (el4if == true)
+        { string codenazv = el4N.ExecScalar<string>(); return codenazv; }
+        
+        else { string codenazv = "A99999999999999"; return codenazv; }
+    }
+    public static string _nomcontract(string selorg)
+    {
+        var contraktordog = SqlClient.CreateCommand("select KDOG from DOG where ORG = @ORG and PR_OSN = '*'");           // Номер договора основной
+        contraktordog.Parameters["ORG"].Value = selorg;
+        bool contrartnomif = contraktordog.ExecReader().Read();
+        if (contrartnomif == true)
+        {
+            string contraktnom = contraktordog.ExecScalar<string>(); return contraktnom;
+        }
+        else
+        {
+            string contraktnom = "Б/Д"; return contraktnom;
+        }
+    }
+    public static string _pricetipvl(string kmatprm, int buyer, string kdogtr)                                  // тип цены контрагента
+    {
+        var cenprotr0 = SqlClient.CreateCommand("select kce1 from cen where kmat=@kmat and org = @org and DCENTO = '31.12.9999'");
+        cenprotr0.Parameters["kmat"].Value = kmatprm;
+        cenprotr0.Parameters["org"].Value = buyer;
+        bool cenprotr0if = cenprotr0.ExecReader().Read();
+        if (cenprotr0if == true)
+        { string kcepro = cenprotr0.ExecScalar<string>(); ; return kcepro; }
+        else
+        {
+            var tippricer3 = SqlClient.CreateCommand("select kce1 from DOG where KDOG = @KDOG and org = @org ");         // иначе по договору 
+            tippricer3.Parameters["org"].Value = buyer;
+            tippricer3.Parameters["KDOG"].Value = kdogtr;
+            bool tippricer3if = tippricer3.ExecReader().Read();
+            if (tippricer3if == true)
+            {
+                string tipprice = tippricer3.ExecScalar<string>(); return tipprice;
+            }
+            else
+            {
+                string tipprice = " "; return tipprice;
+            }
+        }
+    }
+    public static decimal _cenpro(int contraktor, string kmattr, string kdogtr)                                                      //определяем значение цены контрагента
+    {
+        var cenprotr = SqlClient.CreateCommand("select cena from cen where kmat=@kmat and org = @org and DCENTO = '31.12.9999'");
+        cenprotr.Parameters["kmat"].Value = kmattr;
+        cenprotr.Parameters["org"].Value = contraktor;
+        bool cenprotrif = cenprotr.ExecReader().Read();
+        if (cenprotrif == true)
+        {
+            decimal _cenproval = cenprotr.ExecScalar<decimal>();
+            return _cenproval;
+        }
+
+        else                                                                                                // определяем тип цены по договору
+        {
+            var tippricer4 = SqlClient.CreateCommand("select kce1 from DOG where KDOG = @KDOG and org = @org ");
+            tippricer4.Parameters["KDOG"].Value = kdogtr;
+            tippricer4.Parameters["org"].Value = contraktor;
+            string tipprice4 = tippricer4.ExecScalar<string>();
+            // определяем значение цены по договору
+            var cenprotr2 = SqlClient.CreateCommand("select cena from cen where kmat=@kmat and kce1=@kce1 and DCENTO = '31.12.9999'");
+            cenprotr2.Parameters["kmat"].Value = kmattr;
+            cenprotr2.Parameters["kce1"].Value = tipprice4;
+            bool cenprotrif2 = cenprotr2.ExecReader().Read();
+            if (cenprotrif2 == true)
+            {
+                decimal _cenproval2 = cenprotr2.ExecScalar<decimal>(); return _cenproval2;
+            }
+            else { decimal _cenproval2 = 0; return _cenproval2; }
+        }
+    }
+    public static string _paycondit(int contraktor, string kdog)
+    {
+        var payc1 = SqlClient.CreateCommand("select kfpu from DOG where KDOG = @KDOG and org = @org");
+        payc1.Parameters["org"].Value = contraktor;
+        payc1.Parameters["KDOG"].Value = kdog;
+        string payc2 = payc1.ExecScalar<string>();
+        return payc2;
+    }
+    public static string _parserRozetka(string Filexml, int orgbuyer)
+    {
+        System.Threading.Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("en-US");  // Локализация
+        var configDoc = new DocConfig("S1U");                                         // тип процесса
+        var orderN = new Document();                                                  //формируем заголовок
+        orderN.DepartSender = 8004;
+        orderN.OperativeGroup = "SM";                                                //используем группу доступа сбыт медицина всегда!
+        var documentFormer = new DatabaseDocumentFormer();
+        var formParameters = new DocumentFormParameters(configDoc, orderN);
+
+        XmlDocument readerxml = null;
+        readerxml = new XmlDocument();
+        readerxml.Load(Filexml);
+        foreach (XmlNode node in readerxml.SelectNodes("Document-Order"))                               // строки DMZ
+        {
+            string on = node.SelectSingleNode("Order-Header/OrderNumber").InnerText;                          // Номер замовлення
+            string ordate = node.SelectSingleNode("Order-Header/OrderDate").InnerText;                        // Дата замовлення
+            string ordatedeliv = node.SelectSingleNode("Order-Header/ExpectedDeliveryDate").InnerText;        // Вимога до дати поставки
+            string buyer = node.SelectSingleNode("Order-Parties/Buyer/ILN").InnerText;   // контрагент
+            string departm = node.SelectSingleNode("Order-Parties/Buyer/Department").InnerText;        //Замовлення сформовано на відділ
+            string DelPoint = node.SelectSingleNode("Order-Parties/DeliveryPoint/ILN").InnerText;     // місце доставки (вантажоотримувач)
+            string Invoicee = node.SelectSingleNode("Order-Parties/Invoicee/ILN").InnerText;        //одержувач рахунку
+            if (_selecterorg(buyer) != 333)
+            {
+                orderN.ContractorCode = _selecterorg(buyer);
+                orderN.ContrSendRecSelfSide = _selecterorg(DelPoint);
+                orderN.ContractNumber = _nomcontract(_selecterorg(buyer).ToString());
+                orderN.PaymentCondition = _paycondit((_selecterorg(buyer)), (_nomcontract(_selecterorg(buyer).ToString())));
+            }
+            else if (_selecterorg(Invoicee) != 333)
+            {
+                orderN.ContractorCode = _selecterorg(Invoicee);
+                orderN.ContrSendRecSelfSide = _selecterorg(DelPoint);
+                orderN.ContractNumber = _nomcontract(_selecterorg(Invoicee).ToString());
+                orderN.PaymentCondition = _paycondit((_selecterorg(Invoicee)), (_nomcontract(_selecterorg(Invoicee).ToString())));
+            }
+            else if (_selecterorg(DelPoint) != 333)
+            {
+                orderN.ContractorCode = _selecterorg(DelPoint);
+                orderN.ContrSendRecSelfSide = _selecterorg(DelPoint);
+                orderN.ContractNumber = _nomcontract(_selecterorg(DelPoint).ToString());
+                orderN.PaymentCondition = _paycondit((_selecterorg(DelPoint)), (_nomcontract(_selecterorg(DelPoint).ToString())));
+            }
+            else if (_selecterorg(departm) != 333)
+            {
+                orderN.ContractorCode = _selecterorg(departm);
+                orderN.ContrSendRecSelfSide = _selecterorg(DelPoint);
+                orderN.ContractNumber = _nomcontract(_selecterorg(departm).ToString());
+                orderN.PaymentCondition = _paycondit((_selecterorg(departm)), (_nomcontract(_selecterorg(departm).ToString())));
+            }
+            else
+            {
+                orderN.ContractorCode = 333;
+                orderN.ContrSendRecSelfSide = 333;
+            }
+            orderN.ExtractDate = DateTime.UtcNow.Date;
+            orderN.Comment = "№:" + on + "." + "  " + " Дата створення: " + ordate + "." + "Заявка створена з web-system - Vchasno" + "  " + "  " + " Вимога до поставки: " + ordatedeliv + "." + "   " + " Місце доставки: " + _selectercinv(DelPoint) + "." + "  " + " Одержувач рахунка: " + _selectercinv(Invoicee) + "." + "  ";
+        }
+        // строки DMS 
+        var documentRowContent = new List<IDocumentRowContent>();
+
+        XmlNodeList xmllinen = readerxml.GetElementsByTagName("Line");
+        IEnumerator ienum = xmllinen.GetEnumerator();
+
+        while (ienum.MoveNext())
+        {
+            XmlElement linex = (XmlElement)ienum.Current;
+            string elements = linex.OuterXml;                                          //Выводим элементы 
+
+            int first1 = elements.IndexOf("<LineNumber>") + "<LineNumber>".Length;
+            int last1 = elements.LastIndexOf("</LineNumber>");
+            string el1 = elements.Substring(first1, last1 - first1);    // номер строчки Комарх - comment
+
+            int first2 = elements.IndexOf("<EAN>") + "<EAN>".Length;
+            int last2 = elements.LastIndexOf("</EAN>");
+            string el2 = elements.Substring(first2, last2 - first2); // международный код EAN-код - comment, _nazv
+
+            int first3 = elements.IndexOf("<BuyerItemCode>") + "<BuyerItemCode>".Length;
+            int last3 = elements.LastIndexOf("</BuyerItemCode>");
+            string el3 = elements.Substring(first3, last3 - first3);
+
+            int first4 = elements.IndexOf("<SupplierItemCode>") + "<SupplierItemCode>".Length;
+            int last4 = elements.LastIndexOf("</SupplierItemCode>");
+            string el4 = elements.Substring(first4, last4 - first4);
+            string el34nen = _nazv(el3, el4, el2);   //процедура выбора kmat
+
+            int first6 = elements.IndexOf("<OrderedQuantity>") + "<OrderedQuantity>".Length;  // KOL количество продукции
+            int last6 = elements.LastIndexOf("</OrderedQuantity>");
+            decimal el6 = decimal.Parse(elements.Substring(first6, last6 - first6));
+
+            int first7 = elements.IndexOf("<UnitOfMeasure>") + "<UnitOfMeasure>".Length;
+            int last7 = elements.LastIndexOf("</UnitOfMeasure>");
+            string el7 = elements.Substring(first7, last7 - first7);                   // Единица измерения Коммарх
+
+            int first8 = elements.IndexOf("<OrderedUnitNetPrice>") + "<OrderedUnitNetPrice>".Length;
+            int last8 = elements.LastIndexOf("</OrderedUnitNetPrice>");
+            string el8 = elements.Substring(first8, last8 - first8);                 //Цена клиента без ПДВ за 1 ед - для сверки выводим в спец окно
+
+            int first9 = elements.IndexOf("<OrderedUnitGrossPrice>") + "<OrderedUnitGrossPrice>".Length;
+            int last9 = elements.LastIndexOf("</OrderedUnitGrossPrice>");
+            string el9 = elements.Substring(first9, last9 - first9);                     //Цена клиента с ПДВ за 1 ед - для сверки выводим в спец окно
+
+            int first10 = elements.IndexOf("<TaxRate>") + "<TaxRate>".Length;
+            int last10 = elements.LastIndexOf("</TaxRate>");
+            string el10 = elements.Substring(first10, last10 - first10);            // Процент ПДВ - пока никуда не пишем.
+
+            int first11 = elements.IndexOf("<ItemDescription>") + "<ItemDescription>".Length; // название продукции    
+            int last11 = elements.LastIndexOf("</ItemDescription>");
+            string el11 = elements.Substring(first11, last11 - first11);
+
+            int first12 = elements.IndexOf("<NetAmount>") + "<NetAmount>".Length; // сума замовлення 
+            int last12 = elements.LastIndexOf("</NetAmount>");
+            string el12 = elements.Substring(first12, last12 - first12);
+                                                                                            //К-сть в упаковці	
+            int first13 = elements.IndexOf("<OrderedUnitPacksize>") + "<OrderedUnitPacksize>".Length;
+            int last13 = elements.LastIndexOf("</OrderedUnitPacksize>");
+            string el13 = elements.Substring(first13, last13 - first13);
+
+            //Inputs lines
+            string orgbuyer0 = _nomcontract(orgbuyer.ToString());       //номер договора основной
+            string pricecen = _pricetipvl(el34nen, orgbuyer,orgbuyer0);          // тип цены 
+            decimal cenarw = _cenpro(orgbuyer,el34nen, orgbuyer0);           //цена
+            decimal kolrw = ITnet2.Server.UserBusinessLogic._Imsumm._summadmz._edi(el7, el34nen, el6);
+            decimal summarw = cenarw * kolrw;                                  //Сумма 
+            int edirw = ITnet2.Server.UserBusinessLogic._Imsumm._summadmz._edirw(el34nen);
+            int nds = ITnet2.Server.UserBusinessLogic._Imsumm._summadmz._ndsse(el34nen);
+            int koefnds = ITnet2.Server.UserBusinessLogic._Imsumm._summadmz._koef_sp2(nds);
+            string Comment2 = "Дані по заявці: " + "Номер строчки: " + el1 + "." + "       " + " Міжнародний EAN-код: " + el2 + "." + "       " + " Найменування товару: " + el11 + "." + "       " + " Ціна клієнта без ПДВ за 1 ед: " + el8 + "." + "       " + " Ціна клієнта з ПДВ за 1 ед: " + "." + "       " + el9 + " Відсоток ПДВ:" + el10 + "." + "       " + " Сума замовлення: " + el12 + "." + "       " + " К-сть в упаковці: " + el13 + "." + "       ";
+            documentRowContent.Add(new DocumentRowContent(new Dictionary<string, object>{
+    {"CEH_O", 8004},
+    {"EDI", edirw},
+    {"EDI2", edirw},
+    {"KMAT", el34nen},
+    {"KOL", kolrw},
+    {"COMMENT2", Comment2 },
+    {"KCE1", pricecen},
+    {"CENA_1", cenarw},
+    {"CENA_1VAL", cenarw},
+    {"CENA_2", cenarw},
+    {"CENA_2VAL", cenarw},
+    {"SUMMA_1", summarw},
+    {"SUMMA_1VAL", summarw},
+    {"SUMMA_2", summarw},
+    {"SUMMA_2VAL", summarw},
+    {"KDSN", nds},
+    {"PROC_S3", koefnds}
+    //{ ... }, //дописать поля и переменные для подставноки
+    }));
+        }
+        var formeredDocument = documentFormer.Form(formParameters);
+        new FormerV2(formeredDocument).Form(documentRowContent);
+        int undoc1 = formeredDocument.Undoc;
+        ITnet2.Server.UserBusinessLogic._Imsumm._summadmz._dmzsummaadd(undoc1);
+        ITnet2.Server.UserBusinessLogic._Imsumm._summadmz._dmzndsadd(undoc1);
+        return Filexml;
+    }
+}
